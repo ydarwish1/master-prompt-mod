@@ -1,21 +1,24 @@
 // ultrathink-mod: one bar above the prompt with the context window, the 5-hour
-// and 7-day limits, the prompt cache, an Ultrathink button in the rainbow
+// and 7-day limits, the prompt cache, a Master prompt button in the rainbow
 // letters Claude Code paints the word ultrathink in, and a Compact button.
 //
-// The button, before you send, runs your next message at xhigh; while Claude
-// works, it raises the rest of that turn; a second press cancels. /ultra does the
-// same. Only that turn's main requests change: your /effort setting stays, a
-// level at or above xhigh stays, subagents keep theirs, and Opus 4.6 and Sonnet
-// 4.6, which have no xhigh, get high. A boosted message also tells Claude the
-// level it runs at, so it answers truly when asked.
+// Master prompt takes what you have typed in the prompt box, rewrites it with the
+// be-ambitious skill (Altitude, Depth, Range) and puts the rewritten prompt back
+// in the box for you to read and send. Claude Opus 5.5 writes it, every time, at
+// medium effort, from the draft alone (no chat history, no tools).
+//
+// /ultra still runs your next message (or, while Claude works, the rest of this
+// turn) at xhigh: only that turn's main requests change, your /effort setting
+// stays, a level at or above xhigh stays, subagents keep theirs, and Opus 4.6 and
+// Sonnet 4.6, which have no xhigh, get high. A boosted message also tells Claude
+// the level it runs at, so it answers truly when asked.
 //
 // The terminal draws the meters as circle glyphs and the button as a Button
-// (type 0 into an empty prompt to press it). The desktop draws each meter as a
-// ring and the button as a key cap: a picture (capSvg) with a Client over it
-// for the click (ultra-client.tsx).
-// Beside it, Compact runs /compact (9).
+// (0 presses it once the bar has the focus). The desktop draws each meter as a
+// ring and the button as a key cap: a picture (capSvg) with a Client over it for
+// the click (master-client.tsx). Beside it, Compact runs /compact (9).
 //
-// No model calls: the bar reads the engine's own figures and draws.
+// The bar itself makes no model calls; only a press of Master prompt does.
 
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, Timer } from 'claude-code'
@@ -23,9 +26,10 @@ import type { EngineInterface, Register, Timer } from 'claude-code'
 import type { UltrathinkMeters, UltrathinkState } from '../types'
 import {
   BLUE, CAP_H, CAP_W, ORANGE, WORD,
-  boosted, cacheOf, capSvg, contextPercent, letters, nameOf, noteFor, pie, ringSvg, target, usedColor, usedOf, windowsOf,
+  boosted, cacheOf, capSvg, cleanReply, contextPercent, letters, masterAsk, nameOf, noteFor, pie, ringSvg, skillBody, target,
+  usedColor, usedOf, windowsOf,
 } from './bar'
-import type { UltraProps } from './ultra-client'
+import type { MasterProps } from './master-client'
 
 const IDLE: UltrathinkState = { armed: false, pending: false, boostTurn: null, currentTurn: null, effort: null, model: null }
 
@@ -33,32 +37,38 @@ const meters = atom({ plugin: 'ultrathink-mod', key: 'meters' } as const, { cont
 const lastAt = atom({ plugin: 'ultrathink-mod', key: 'lastAt' } as const, 0)
 const ultra = atom({ plugin: 'ultrathink-mod', key: 'ultra' } as const, IDLE)
 const isCompacting = atom({ plugin: 'ultrathink-mod', key: 'isCompacting' } as const, false)
+const isRewriting = atom({ plugin: 'ultrathink-mod', key: 'isRewriting' } as const, false)
 
 /** From this full, the Compact button becomes the main action. */
 const COMPACT_NUDGE = 70
 
 /** How often the bar redraws, so the cache countdown stays current. */
 const TICK_MS = 30_000
-/** How fast the shimmer runs through the word while Ultrathink is on. */
+/** How fast the shimmer runs through the word while the Master prompt is written. */
 const SHIMMER_MS = 120
 /** Under this many columns the button gets a row of its own. */
 const WIDE = 110
+/** Who writes every Master prompt, whatever model the session runs: Claude Opus 5.5 at medium effort. */
+const MASTER_MODEL = 'claude-opus-5-5'
+const MASTER_EFFORT = 'medium'
+/** The most the reply may run to, in tokens, its thinking included. */
+const MASTER_MAX_TOKENS = 16000
+/** How long a rewrite may take before it gives up and leaves the draft. */
+const MASTER_TIMEOUT_MS = 180_000
 
 let shimmer: Timer | null = null
 let frame = 0
-// The terminal's shimmer redraws the bar; the desktop's runs inside its Client.
+// The terminal's shimmer redraws the bar; the desktop's runs inside its SVG.
 let drawsTerminal = false
 
-const isOn = (s: UltrathinkState): boolean => s.armed || s.pending || s.boostTurn !== null
-
-/** Runs the terminal's shimmer while Ultrathink is on, and stops it when it goes off. */
-function syncShimmer($: EngineInterface, s: UltrathinkState): void {
-  if (isOn(s) && drawsTerminal && shimmer === null) {
+/** Runs the terminal's shimmer while the Master prompt is written, and stops it after. */
+function syncShimmer($: EngineInterface, isOn: boolean): void {
+  if (isOn && drawsTerminal && shimmer === null) {
     shimmer = $.clock.every(SHIMMER_MS, () => {
       frame += 1
       $.ui.invalidate('ui.render')
     })
-  } else if (!isOn(s) && shimmer !== null) {
+  } else if (!isOn && shimmer !== null) {
     shimmer.cancel()
     shimmer = null
     frame = 0
@@ -83,11 +93,115 @@ function compact($: EngineInterface): void {
   )
 }
 
-// What a press does: while a turn runs, raise (or lower) the rest of it;
+/** The be-ambitious skill's instructions and the file they came from: your own copy first, then one the app synced. */
+async function readSkill($: EngineInterface): Promise<{ path: string; body: string } | null> {
+  const home = await $.env.get('HOME')
+  const config = (await $.env.get('CLAUDE_CONFIG_DIR')) ?? (home ? `${home}/.claude` : null)
+  if (!config) return null
+  const paths = [`${config}/skills/be-ambitious/SKILL.md`]
+  try {
+    for (const entry of await $.fs.list(`${config}/skills/synced`)) {
+      paths.push(`${config}/skills/synced/${entry.name}/be-ambitious/SKILL.md`)
+    }
+  } catch {
+    // No synced skills on this machine.
+  }
+  for (const path of paths) {
+    try {
+      const body = skillBody(await $.fs.read(path))
+      if (body) return { path, body }
+    } catch {
+      // Not there; try the next.
+    }
+  }
+  return null
+}
+
+/** The last press's steps, one line each, in the mod's folder (overwritten by the next press). */
+const TRACE_FILE = '.master-prompt.log'
+
+const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error))
+
+// What a press of Master prompt does: rewrite the draft with the be-ambitious
+// skill and put the result in the box. The draft stays as it is when there is
+// none, when the rewrite fails, or when you changed it while Claude wrote.
+// Each step goes to TRACE_FILE, so a press that shows nothing can be read back.
+async function master($: EngineInterface): Promise<void> {
+  if (await read($, isRewriting)) {
+    await $.ui.toast('Still writing your Master prompt.')
+    return
+  }
+  // The cap lights up at once, before anything slow runs.
+  await update($, isRewriting, () => true)
+  syncShimmer($, true)
+  const lines: string[] = []
+  const note = async (line: string): Promise<void> => {
+    lines.push(`${new Date(await $.clock.now()).toISOString()} ${line}`)
+    await $.fs.write(`${$.plugin.root}/${TRACE_FILE}`, lines.join('\n') + '\n').catch(() => undefined)
+  }
+  const say = async (text: string): Promise<void> => {
+    await note(`toast: ${text}`)
+    await $.ui.toast(text)
+  }
+  try {
+    await note('press')
+    const { text: draft } = await $.prompt.read()
+    await note(`draft: ${draft.length} chars`)
+    if (!draft.trim()) {
+      await say('Type a prompt first, then press Master prompt.')
+      return
+    }
+    const skill = await readSkill($)
+    await note(skill ? `skill: ${skill.path}` : 'skill: none found')
+    if (!skill) {
+      await say('Master prompt needs the be-ambitious skill in ~/.claude/skills/be-ambitious.')
+      return
+    }
+    await $.ui.toast('Writing your Master prompt…')
+    await note(`ask: ${MASTER_MODEL} at ${MASTER_EFFORT}`)
+    const reply = await $.model.complete({
+      model: MASTER_MODEL,
+      effort: MASTER_EFFORT,
+      prompt: masterAsk(skill.body, draft),
+      maxTokens: MASTER_MAX_TOKENS,
+      timeoutMs: MASTER_TIMEOUT_MS,
+    })
+    await note(`answer: ${reply.isAnswered ? `${reply.text.length} chars` : reply.reason}`)
+    if (!reply.isAnswered) {
+      await say(`Master prompt failed (${reply.reason}). Your draft is unchanged.`)
+      return
+    }
+    const rewritten = cleanReply(reply.text)
+    if (!rewritten) {
+      await say('Master prompt came back empty. Your draft is unchanged.')
+      return
+    }
+    if ((await $.prompt.read()).text !== draft) {
+      await say('You changed the draft while the Master prompt was written, so it stays as you left it.')
+      return
+    }
+    const filled = await $.prompt.fill({ text: rewritten, mode: 'replace' })
+    await note(`fill: ${filled.isFilled ? 'filled' : `not filled (${filled.refusal ?? 'no reason'})`}`)
+    await say(filled.isFilled ? 'Your Master prompt is in the box. Read it, then send.' : 'The Master prompt could not go in the box.')
+  } catch (error) {
+    await say(`Master prompt failed: ${errorText(error)}`)
+  } finally {
+    await update($, isRewriting, () => false)
+    syncShimmer($, false)
+  }
+}
+
+// Work a press starts ends with the press, and a rewrite takes a while, so a
+// timer runs it in a dispatch of its own, as Compact does.
+function startMaster($: EngineInterface): void {
+  $.clock.after(1, () => master($).catch((error: unknown) => $.ui.toast(`Master prompt failed: ${errorText(error)}`)))
+}
+
+// What /ultra does: while a turn runs, raise (or lower) the rest of it;
 // otherwise arm (or disarm) the next message. Returns a line saying so.
 async function press($: EngineInterface, working: boolean): Promise<string> {
   let said = ''
-  const s = await update($, ultra, u => {
+  await update($, ultra, u => {
     if (working && u.currentTurn !== null) {
       if (u.boostTurn === u.currentTurn) {
         said = 'Ultrathink off: the rest of this turn goes back to your level.'
@@ -99,7 +213,6 @@ async function press($: EngineInterface, working: boolean): Promise<string> {
     said = u.armed ? 'Ultrathink off for your next message.' : 'Ultrathink on: your next message runs at xhigh.'
     return { ...u, armed: !u.armed }
   })
-  syncShimmer($, s)
   return said
 }
 
@@ -117,7 +230,8 @@ export const register: Register = on => {
     const result = await next(e)
     await pull($).catch(() => undefined)
     $.clock.every(TICK_MS, () => $.ui.invalidate('ui.render'))
-    syncShimmer($, await read($, ultra))
+    // A reload drops a rewrite under way, so the button starts at rest.
+    await update($, isRewriting, () => false)
     return result
   })
 
@@ -181,12 +295,11 @@ export const register: Register = on => {
 
   on('turn.complete', async ($, e, next) => {
     if (!e.agentId) {
-      const s = await update($, ultra, u => ({
+      await update($, ultra, u => ({
         ...u,
         boostTurn: u.boostTurn === e.turnId ? null : u.boostTurn,
         currentTurn: u.currentTurn === e.turnId ? null : u.currentTurn,
       }))
-      syncShimmer($, s)
       await pull($).catch(() => undefined)
     }
     return next(e)
@@ -198,13 +311,13 @@ export const register: Register = on => {
     return {}
   })
 
-  // A click on the desktop's Ultrathink control (ultra-client.tsx).
+  // A click on the desktop's Master prompt cap (master-client.tsx).
   on('ui.message', async ($, e, next) => {
-    const data = e.data as { press?: unknown; isWorking?: unknown } | null
-    if (e.element !== 'ultrathink' || !data || data.press !== true) {
+    const data = e.data as { press?: unknown } | null
+    if (e.element !== 'master-prompt' || !data || data.press !== true) {
       return next(e)
     }
-    await press($, data.isWorking === true)
+    startMaster($)
     return {}
   })
 
@@ -217,12 +330,8 @@ export const register: Register = on => {
     const desktop = e.surface === 'desktop' && 'Svg' in ui && 'Client' in ui ? ui : null
     if (e.surface === 'terminal') drawsTerminal = true
     const m = await read($, meters)
-    const s = await read($, ultra)
     const cache = cacheOf(await read($, lastAt), await $.clock.now())
     const isWide = (e.props.bodyColumns || 80) >= WIDE
-    const live = e.props.isWorking && s.currentTurn !== null
-    const isBoosting = live && s.boostTurn === s.currentTurn
-    const isArmed = !live && (s.armed || s.pending)
 
     // A meter: its ring (an Svg on the desktop, a circle glyph in the terminal), its figure, its name.
     const meter = (key: string, percent: number, color: string, value: string, name: string) => (
@@ -252,21 +361,21 @@ export const register: Register = on => {
         )
       ) : null
 
-    // While it is on, the word shimmers; nothing else is drawn beside it.
-    const ultraProps: UltraProps = { isOn: isBoosting || isArmed, isWorking: Boolean(e.props.isWorking) }
-    const word = letters(WORD, ultraProps.isOn ? frame : null)
+    // While the Master prompt is written, the word shimmers.
+    const masterProps: MasterProps = { isOn: await read($, isRewriting) }
+    const word = letters(WORD, masterProps.isOn ? frame : null)
     // The desktop's key cap: its picture, and the Client that takes the click, laid over it.
-    const ultraPart = desktop ? (
-      <Box key="ultrathink-cap" position="relative" flexShrink={0}>
-        <desktop.Svg source={capSvg(ultraProps.isOn ? 'on' : 'rest')} alt="Ultrathink" width={CAP_W} height={CAP_H} />
+    const masterPart = desktop ? (
+      <Box key="master-prompt-cap" position="relative" flexShrink={0}>
+        <desktop.Svg source={capSvg(masterProps.isOn ? 'on' : 'rest')} alt="Master prompt" width={CAP_W} height={CAP_H} />
         <Box position="absolute" top={0} left={0} width="100%" height="100%">
-          <desktop.Client key="ultrathink" module="./ultra-client.tsx" props={ultraProps} width="100%" height="100%" />
+          <desktop.Client key="master-prompt" module="./master-client.tsx" props={masterProps} width="100%" height="100%" />
         </Box>
       </Box>
     ) : (
-      <Box key="ultra" flexDirection="row" flexShrink={0}>
-        <Button key="ultrathink" label="Ultrathink" hotkey="0" plain onPress={() => press($, Boolean(e.props.isWorking))}>
-          {'⚡ '}
+      <Box key="master" flexDirection="row" flexShrink={0}>
+        <Button key="master-prompt" label="Master prompt" hotkey="0" plain onPress={() => startMaster($)}>
+          <Text color={ORANGE}>{'✦ '}</Text>
           {word.map((l, i) => (
             <Text key={`l${i}`} color={l.color} bold>
               {l.ch}
@@ -278,7 +387,7 @@ export const register: Register = on => {
 
     const buttons = (
       <Box key="buttons" flexDirection="row" flexShrink={0} alignItems="center" columnGap={2}>
-        {ultraPart}
+        {masterPart}
         {compactPart}
       </Box>
     )

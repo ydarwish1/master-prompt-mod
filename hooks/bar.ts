@@ -3,10 +3,12 @@
 
 import type { UltrathinkWindow } from '../types'
 
-export const WORD = 'ultrathink'
+/** The button's word: Master prompt, which took the Ultrathink button's place. */
+export const WORD = 'Master prompt'
 
 // The colors Claude Code paints the word ultrathink in, one per letter (its
 // theme's rainbow_* keys), and the lighter ones its shimmer runs through.
+// The Master prompt button keeps them, so it sits where Ultrathink sat in its look.
 export const RED = '#EB5F57'
 export const ORANGE = '#F58B57'
 export const YELLOW = '#FAC35F'
@@ -107,7 +109,7 @@ export function ringSvg(percent: number, color: string): string {
   )
 }
 
-/** The desktop's key cap at rest, and while Ultrathink is on. */
+/** The desktop's key cap at rest, and while it writes the Master prompt. */
 export type CapLook = 'rest' | 'on'
 
 const CAP_COLORS: Record<CapLook, { cap: string; key: string }> = {
@@ -116,14 +118,15 @@ const CAP_COLORS: Record<CapLook, { cap: string; key: string }> = {
 }
 
 // The cap's measures, in CSS pixels, as the chosen design has them: a 3px inset,
-// a 26px key, a 6px gap, the word (65px as the desktop's system font sets it at
-// 14px semibold, pinned with textLength so the cap always fits it), 10px after.
-const WORD_W = 65
+// a 26px key, a 6px gap, the word (100px as the desktop's system font sets
+// "Master prompt" at 14px semibold, measured 99.9 on 2026-11-23, pinned with
+// textLength so the cap always fits it), 10px after.
+const WORD_W = 100
 export const CAP_W = 3 + 26 + 6 + WORD_W + 10
 export const CAP_H = 28
 
 /**
- * The desktop's key cap as one SVG: a rounded button with a rounded ⚡ key on
+ * The desktop's key cap as one SVG: a rounded button with a rounded ✦ key on
  * its left and the rainbow word. While on, a lighter band runs through the
  * letters; the animation is the SVG's own, so nothing redraws.
  */
@@ -145,9 +148,45 @@ export function capSvg(look: CapLook): string {
     `<style>text{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;font-size:14px;font-weight:600}${shimmer}</style>` +
     `<rect width="${CAP_W}" height="${CAP_H}" rx="8" fill="${c.cap}"/>` +
     `<rect x="3" y="3" width="26" height="${CAP_H - 6}" rx="6" fill="${c.key}"/>` +
-    `<text x="16" y="19" font-size="13" text-anchor="middle">⚡</text>` +
+    `<text x="16" y="19" font-size="13" text-anchor="middle" fill="${ORANGE}">✦</text>` +
     `<text x="35" y="19" textLength="${WORD_W}" lengthAdjust="spacing">${word}</text></svg>`
   )
+}
+
+/** A SKILL.md's instructions: the file with its frontmatter block taken off. */
+export function skillBody(md: string): string {
+  return md.replace(/^﻿?---\r?\n[\s\S]*?\r?\n---\r?\n/, '').trim()
+}
+
+/**
+ * What the Master prompt button asks Claude: rewrite the draft with the
+ * be-ambitious skill, as a prompt to improve, and reply with the prompt alone.
+ */
+export function masterAsk(skill: string, draft: string): string {
+  return [
+    'The person pressed the Master prompt button on the draft in their prompt box. Rewrite that draft into a Master prompt',
+    'with the be-ambitious skill below. Treat the draft as "a prompt to improve": stop after the rewritten prompt and do none',
+    'of the work. You see the draft alone, not the chat it came from: never invent a fact, file, tool or result. You have',
+    'no tools here.',
+    '',
+    'Reply with the rewritten prompt alone, written the way the person would type it, ending with the outside judge and what',
+    'counts as a pass. No plan, no headings, no code fence, nothing before or after it.',
+    '',
+    '<skill name="be-ambitious">',
+    skill,
+    '</skill>',
+    '',
+    '<draft>',
+    draft,
+    '</draft>',
+  ].join('\n')
+}
+
+/** The prompt out of Claude's reply: the last fenced block when it wrote one, else the whole reply, trimmed. */
+export function cleanReply(text: string): string {
+  const blocks = [...text.matchAll(/```[^\n]*\n([\s\S]*?)\n?```/g)]
+  const last = blocks.length > 0 ? blocks[blocks.length - 1]?.[1] : undefined
+  return (last ?? text).trim()
 }
 
 /** A span of time, short: 45m, 3h 10m, 2d 4h. */

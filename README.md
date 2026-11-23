@@ -3,30 +3,40 @@
 A free mod for Claude Code. It adds one bar above your prompt:
 
 ```text
-○ 9% context  ○ 5% 5h  ◑ 42% 7d  ● warm 53m cache      0: ⚡ ultrathink  9: Compact
+○ 9% context  ○ 5% 5h  ◑ 42% 7d  ● warm 53m cache      0: ✦ Master prompt  9: Compact
 ```
 
 - **context**: how full the context window is.
 - **5h** and **7d**: how much of your 5-hour and 7-day usage you have used.
 - **cache**: whether the prompt cache is warm (with the minutes left) or cold. It counts one hour from the last request.
-- **⚡ ultrathink**: a button in the same rainbow letters Claude Code uses for the word ultrathink.
+- **✦ Master prompt**: rewrites what you typed into a stronger prompt with the be-ambitious skill. It sits where the Ultrathink button used to be, in the same rainbow letters.
 - **Compact**: runs `/compact`. It hides while Claude works. From 70% context it becomes **Compact now**, the main button.
 
-In the Desktop app each meter is a ring, and the Ultrathink button is a rounded key cap with a ⚡ key. While Ultrathink is on, the cap turns violet and the word shimmers. In the terminal each meter is a circle that fills by quarters.
+In the Desktop app each meter is a ring, and the Master prompt button is a rounded key cap with a ✦ key. While it writes your Master prompt, the cap turns violet and the word shimmers. In the terminal each meter is a circle that fills by quarters.
 
-It works in the terminal and in the Claude Desktop app. It makes no model calls: it reads Claude Code's own figures.
+It works in the terminal and in the Claude Desktop app. The bar makes no model calls: it reads Claude Code's own figures. Only a press of Master prompt calls the model.
 
-## The Ultrathink button
+## The Master prompt button
 
-- **Before you send:** press it, and your next message runs at `xhigh` effort. The word shimmers while it is on.
-- **While Claude works:** press it, and the rest of that turn runs at `xhigh`.
-- **Press again** to cancel.
+1. Type your prompt in the box. Do not send it.
+2. Press **Master prompt**.
+3. Wait while the word shimmers. Claude Opus 5.5, at medium effort, rewrites your prompt with the [be-ambitious](https://felixrieseberg.com/how-to-be-more-ambitious-a-tutorial-for-humans-with-models/) skill (Altitude, Depth, Range). It uses the same model whatever your chat runs, and it sees only your draft, not the chat.
+4. The rewritten prompt replaces your draft in the box. Read it, change what you like, then send.
+
+It needs the be-ambitious skill at `~/.claude/skills/be-ambitious/SKILL.md`. Your draft stays as it is when the box is empty, when the rewrite fails, or when you change the draft while Claude writes.
 
 How to press it:
 
 - **Desktop app:** click it.
-- **Terminal:** type `0` into the empty prompt and wait a moment. With fullscreen rendering you can also click it.
-- **Anywhere:** type `/ultra`.
+- **Terminal:** press `ctrl+x` then `tab` to move to the bar, then `0`. With fullscreen rendering you can also click it.
+
+## /ultra
+
+The Ultrathink button is gone, but `/ultra` still works:
+
+- **Before you send:** type `/ultra`, and your next message runs at `xhigh` effort.
+- **While Claude works:** type `/ultra`, and the rest of that turn runs at `xhigh`.
+- **Type it again** to cancel.
 
 What it never does:
 

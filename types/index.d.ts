@@ -4,7 +4,7 @@ export type UltrathinkWindow = { kind: string; percentUsed: number; resetsAt?: s
 /** What the bar's meters show: how full the context is, and each usage window. */
 export type UltrathinkMeters = { context: number | null; windows: UltrathinkWindow[] }
 
-/** The Ultrathink button's state, and the level the last main request asked for. */
+/** The Ultrathink boost's state (/ultra), and the level the last main request asked for. */
 export type UltrathinkState = {
   /** Pressed before sending: the next message you send gets the boost. */
   armed: boolean
@@ -22,6 +22,13 @@ export type UltrathinkState = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'ultrathink-mod': { meters: UltrathinkMeters; lastAt: number; ultra: UltrathinkState; isCompacting: boolean }
+    'ultrathink-mod': {
+      meters: UltrathinkMeters
+      lastAt: number
+      ultra: UltrathinkState
+      isCompacting: boolean
+      /** The Master prompt button is rewriting the draft. */
+      isRewriting: boolean
+    }
   }
 }

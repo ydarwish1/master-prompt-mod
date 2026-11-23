@@ -1,7 +1,7 @@
 {
   "name": "ultrathink-mod",
-  "version": "0.2.0",
-  "description": "One bar above the prompt: context, 5-hour and 7-day usage, prompt cache, a rainbow Ultrathink button that runs your next message (or the rest of this turn) at xhigh, and Compact.",
+  "version": "0.3.0",
+  "description": "One bar above the prompt: context, 5-hour and 7-day usage, prompt cache, a rainbow Master prompt button that rewrites your draft with the be-ambitious skill, and Compact. /ultra runs your next message at xhigh.",
   "author": { "name": "Yusif Darwish" },
   "homepage": "https://github.com/ydarwish1/ultrathink-mod",
   "repository": "https://github.com/ydarwish1/ultrathink-mod",
