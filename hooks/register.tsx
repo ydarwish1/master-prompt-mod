@@ -1,4 +1,4 @@
-// ultrathink-mod: one bar above the prompt with the context window, the 5-hour
+// master-prompt-mod: one bar above the prompt with the context window, the 5-hour
 // and 7-day limits, the prompt cache, a Master prompt button in the rainbow
 // letters Claude Code paints the word ultrathink in, and a Compact button.
 //
@@ -33,11 +33,11 @@ import type { MasterProps } from './master-client'
 
 const IDLE: UltrathinkState = { armed: false, pending: false, boostTurn: null, currentTurn: null, effort: null, model: null }
 
-const meters = atom({ plugin: 'ultrathink-mod', key: 'meters' } as const, { context: null, windows: [] } as UltrathinkMeters)
-const lastAt = atom({ plugin: 'ultrathink-mod', key: 'lastAt' } as const, 0)
-const ultra = atom({ plugin: 'ultrathink-mod', key: 'ultra' } as const, IDLE)
-const isCompacting = atom({ plugin: 'ultrathink-mod', key: 'isCompacting' } as const, false)
-const isRewriting = atom({ plugin: 'ultrathink-mod', key: 'isRewriting' } as const, false)
+const meters = atom({ plugin: 'master-prompt-mod', key: 'meters' } as const, { context: null, windows: [] } as UltrathinkMeters)
+const lastAt = atom({ plugin: 'master-prompt-mod', key: 'lastAt' } as const, 0)
+const ultra = atom({ plugin: 'master-prompt-mod', key: 'ultra' } as const, IDLE)
+const isCompacting = atom({ plugin: 'master-prompt-mod', key: 'isCompacting' } as const, false)
+const isRewriting = atom({ plugin: 'master-prompt-mod', key: 'isRewriting' } as const, false)
 
 /** From this full, the Compact button becomes the main action. */
 const COMPACT_NUDGE = 70

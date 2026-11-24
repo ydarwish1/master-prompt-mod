@@ -1,4 +1,4 @@
-// ultrathink-mod: the bar's rules, as plain functions with no mods API calls,
+// master-prompt-mod: the bar's rules, as plain functions with no mods API calls,
 // so the tests can check them directly.
 
 import type { UltrathinkWindow } from '../types'

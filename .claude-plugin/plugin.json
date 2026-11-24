@@ -1,11 +1,11 @@
 {
-  "name": "ultrathink-mod",
+  "name": "master-prompt-mod",
   "version": "0.3.0",
   "description": "One bar above the prompt: context, 5-hour and 7-day usage, prompt cache, a rainbow Master prompt button that rewrites your draft with the be-ambitious skill, and Compact. /ultra runs your next message at xhigh.",
   "author": { "name": "Yusif Darwish" },
-  "homepage": "https://github.com/ydarwish1/ultrathink-mod",
-  "repository": "https://github.com/ydarwish1/ultrathink-mod",
+  "homepage": "https://github.com/ydarwish1/master-prompt-mod",
+  "repository": "https://github.com/ydarwish1/master-prompt-mod",
   "license": "MIT",
-  "keywords": ["ultrathink", "effort", "mod", "usage", "cache"],
+  "keywords": ["master prompt", "prompt", "be-ambitious", "mod", "usage", "cache"],
   "types": "./types/index.d.ts"
 }

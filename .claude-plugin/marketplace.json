@@ -1,10 +1,10 @@
 {
-  "name": "ultrathink-mod",
+  "name": "master-prompt-mod",
   "description": "A Claude Code mod: one bar above the prompt with your usage and a rainbow Master prompt button",
   "owner": { "name": "Yusif Darwish" },
   "plugins": [
     {
-      "name": "ultrathink-mod",
+      "name": "master-prompt-mod",
       "source": "./",
       "description": "Context, prompt cache, 5-hour and 7-day limits, and a rainbow Master prompt button above the prompt"
     }

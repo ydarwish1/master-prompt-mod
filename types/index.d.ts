@@ -22,7 +22,7 @@ export type UltrathinkState = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'ultrathink-mod': {
+    'master-prompt-mod': {
       meters: UltrathinkMeters
       lastAt: number
       ultra: UltrathinkState

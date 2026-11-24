@@ -6,7 +6,7 @@ import { RAINBOW, boosted, capSvg, cleanReply, letters, masterAsk, noteFor, skil
 
 const band = <S extends RenderSurface>(surface: S, isWorking = false) =>
   ({
-    plugin: 'ultrathink-mod',
+    plugin: 'master-prompt-mod',
     surface,
     component: 'AbovePrompt',
     props: { hasSurvey: false, isCollapsed: false, isWorking, maxRows: 10, bodyColumns: 120, scroll: { offset: 0, bodyRows: 10 }, view: {} },

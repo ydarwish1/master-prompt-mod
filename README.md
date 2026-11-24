@@ -1,4 +1,4 @@
-# ultrathink-mod
+# master-prompt-mod
 
 A free mod for Claude Code. It adds one bar above your prompt:
 
@@ -52,7 +52,7 @@ A boosted message also tells Claude the level it runs at, so it answers truly wh
 At the prompt of a Claude Code terminal session:
 
 ```text
-/plugin install ultrathink-mod --marketplace ydarwish1/ultrathink-mod
+/plugin install master-prompt-mod --marketplace ydarwish1/master-prompt-mod
 ```
 
 1. Type `y` when it asks `Add marketplace?`.
@@ -62,10 +62,10 @@ At the prompt of a Claude Code terminal session:
 From a shell:
 
 ```bash
-claude plugin install ultrathink-mod --marketplace ydarwish1/ultrathink-mod
+claude plugin install master-prompt-mod --marketplace ydarwish1/master-prompt-mod
 ```
 
-In the Desktop app, where `/plugin` does not run: click **+** next to the prompt box, then **Plugins**, **Add marketplace** with `ydarwish1/ultrathink-mod`, then **Add plugin**.
+In the Desktop app, where `/plugin` does not run: click **+** next to the prompt box, then **Plugins**, **Add marketplace** with `ydarwish1/master-prompt-mod`, then **Add plugin**.
 
 You need Claude Code 2.1.287 or later, where mods load by default.
 

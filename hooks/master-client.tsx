@@ -1,4 +1,4 @@
-// ultrathink-mod: the click area of the Master prompt key cap in the Desktop app.
+// master-prompt-mod: the click area of the Master prompt key cap in the Desktop app.
 //
 // The desktop's cap is a picture (capSvg in bar.ts), since a Box there rounds
 // no corners without a border a whole row thick, and a desktop Button is native
